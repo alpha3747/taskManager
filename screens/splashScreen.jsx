@@ -24,7 +24,7 @@ const SplashScreen = ({navigation}) => {
     // progress bar
     Animated.timing(progress, {
       toValue: 1,
-      duration: 2500,
+      duration: 2000,
       useNativeDriver: false,
     }).start(() => navigation.replace('Home'));
   }, []);
@@ -56,8 +56,7 @@ const SplashScreen = ({navigation}) => {
           />
         </View>
       </View>
-
-      <Text style={styles.tagline}>Powered by WorkLabs</Text>
+      <Text style={styles.tagline}>Powered by alphatech</Text>
     </View>
   );
 };
@@ -78,11 +77,10 @@ const styles = StyleSheet.create({
   image: {
     width: 200,
     height: 200,
-    marginBottom: 40,
   },
   progressBar: {
-    height: 10,
-    width: '60%',
+    height: 8,
+    width: '70%',
     backgroundColor: '#333',
     borderRadius: 5,
     overflow: 'hidden',

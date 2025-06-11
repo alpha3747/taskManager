@@ -1,7 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import PickerModal from '@freakycoder/react-native-picker-modal';
-import {Swipeable} from 'react-native-gesture-handler';
 import React, {useState, useEffect, useRef} from 'react';
 import {
   StyleSheet,
@@ -11,113 +7,133 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
-  Keyboard,
   useWindowDimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import PickerModal from '@freakycoder/react-native-picker-modal';
+import {Swipeable} from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
+import {moderateScale, verticalScale, scale} from '../utils/scale';
+
+const PRIORITIES = ['high', 'medium', 'low'];
+const PRIORITY_ORDER = {high: 0, medium: 1, low: 2};
 
 const HomeScreen = () => {
   const {width, height} = useWindowDimensions();
+  const inputRef = useRef(null);
 
   const [task, setTask] = useState('');
   const [tasks, setTasks] = useState([]);
-  const [priority, setPriority] = useState([]);
+  const [priority, setPriority] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setModalVisible] = useState(false);
-  const inputRef = useRef(null);
-  const priorities = ['high', 'medium', 'low'];
 
-  // Load saved tasks on mount
+  /** Load tasks from storage on mount */
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        const savedTasks = await AsyncStorage.getItem('tasks');
-        if (savedTasks) setTasks(JSON.parse(savedTasks));
+        const saved = await AsyncStorage.getItem('tasks');
+        if (saved) setTasks(JSON.parse(saved));
       } catch (error) {
-        console.log('Error while loading tasks:', error);
+        console.error('Failed loading tasks:', error);
       }
     };
     loadTasks();
   }, []);
 
-  // when user taps add button handleAddButtonPress
+  /** Save task to storage */
+  const saveTasks = async updatedTasks => {
+    try {
+      await AsyncStorage.setItem('tasks', JSON.stringify(updatedTasks));
+    } catch (error) {
+      console.error('Saving failed:', error);
+    }
+  };
+
+  /** Add task button pressed */
   const handleAddButtonPress = () => {
     inputRef.current.blur();
-    setTimeout(() => {
-      inputRef.current.focus(); // refocus to ensure keyboard opens
-    }, 100);
-    if (task.trim().length > 0) {
+    setTimeout(() => inputRef.current.focus(), 100);
+    if (task.trim()) {
       setModalVisible(true);
     }
   };
 
-  // When priority is selected from modal
-  const handlePrioritySelect = async selectedPriority => {
-    const formattedPriority = selectedPriority.toLowerCase();
+  /** On selecting priority from modal */
+  const handlePrioritySelect = async selected => {
+    const selectedPriority = selected.toLowerCase();
 
     const newTask = {
       id: Date.now().toString(),
       text: task.trim(),
-      priority: formattedPriority,
+      priority: selectedPriority,
     };
 
-    const updatedTasks = [...tasks, newTask].sort((a, b) => {
-      const priorityOrder = {high: 0, medium: 1, low: 2};
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
+    const updatedTasks = [...tasks, newTask].sort(
+      (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
+    );
 
     setTasks(updatedTasks);
     setTask('');
-    setPriority(formattedPriority);
+    setPriority(selectedPriority);
     setModalVisible(false);
+    await saveTasks(updatedTasks);
 
-    try {
-      await AsyncStorage.setItem('tasks', JSON.stringify(updatedTasks));
-      Toast.show({
-        type: 'success',
-        text1: `Task added with "${formattedPriority}" priority`,
-        visibilityTime: 1500,
-      });
-    } catch (error) {
-      console.log('Error saving task:', error);
-    }
+    Toast.show({
+      type: 'success',
+      text1: `Task added with "${selectedPriority}" priority`,
+      visibilityTime: 1500,
+    });
   };
 
-  // Delete task function
+  /** Delete a task by index */
   const deleteTask = async index => {
-    const deletedTask = tasks[index].text;
+    const deleted = tasks[index]?.text;
     const updatedTasks = tasks.filter((_, i) => i !== index);
     setTasks(updatedTasks);
+    await saveTasks(updatedTasks);
 
-    try {
-      await AsyncStorage.setItem('tasks', JSON.stringify(updatedTasks));
-      Toast.show({
-        type: 'info',
-        text1: `Deleted: "${deletedTask}"`,
-        visibilityTime: 1500,
-      });
-    } catch (error) {
-      console.log('Error deleting task:', error);
-    }
+    Toast.show({
+      type: 'info',
+      text1: `Deleted: "${deleted}"`,
+      visibilityTime: 1500,
+    });
   };
 
-  // swipe to delete
-  const renderRightActions = index => {
-    return (
-      <TouchableOpacity
-        onPress={() => deleteTask(index)}
-        activeOpacity={0.7}
-        style={styles.swipeDeleteButton}>
-        <Icon name="trash-can" size={26} color="#fff" />
-        <Text style={styles.swipeDeleteText}>Delete</Text>
-      </TouchableOpacity>
-    );
-  };
+  /** Render swipe delete button */
+  const renderRightActions = index => (
+    <TouchableOpacity
+      onPress={() => deleteTask(index)}
+      activeOpacity={0.7}
+      style={styles.swipeDeleteButton}>
+      <Icon name="trash-can" size={26} color="#fff" />
+      <Text style={styles.swipeDeleteText}>Delete</Text>
+    </TouchableOpacity>
+  );
+
+  /** Filter tasks by search */
+  const filteredTasks = tasks.filter(t =>
+    t.text.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>WORK LABS</Text>
 
-      {/* Input */}
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search tasks..."
+          placeholderTextColor="#aaa"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <Icon name="magnify" size={22} color="#ccc" style={styles.searchIcon} />
+      </View>
+
+      {/* Input Area */}
       <View style={styles.inputContainer}>
         <TextInput
           ref={inputRef}
@@ -128,22 +144,32 @@ const HomeScreen = () => {
           onChangeText={setTask}
           onSubmitEditing={handleAddButtonPress}
         />
+        <View style={styles.iconWrapper}>
+          <TouchableOpacity onPress={handleAddButtonPress}>
+            <Icon
+              name={task.trim() ? 'check' : 'plus'}
+              size={22}
+              color="#00b894"
+              style={styles.plusIcon}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Priority Modal */}
       <PickerModal
         title="Select Task Priority"
         isVisible={isModalVisible}
-        data={priorities}
+        data={PRIORITIES}
         onPress={handlePrioritySelect}
         onCancelPress={() => setModalVisible(false)}
         onBackdropPress={() => setModalVisible(false)}
       />
 
-      {/* Tasks List */}
+      {/* Task List */}
       <FlatList
         style={styles.flatlist}
-        data={tasks}
+        data={filteredTasks}
         keyExtractor={item => item.id}
         renderItem={({item, index}) => (
           <Swipeable renderRightActions={() => renderRightActions(index)}>
@@ -165,17 +191,15 @@ const HomeScreen = () => {
         )}
       />
 
-      {/* Add Task Button */}
+      {/* Floating Add Button */}
       <TouchableOpacity
         onPress={handleAddButtonPress}
         style={[
           styles.addButton,
-          {
-            backgroundColor: task.trim().length > 0 ? '#00b894' : '#6C63FF',
-          },
+          {backgroundColor: task.trim() ? '#00b894' : '#6C63FF'},
         ]}>
         <Icon
-          name={task.trim().length > 0 ? 'check' : 'plus'}
+          name={task.trim() ? 'check' : 'plus'}
           style={styles.addButtonText}
         />
       </TouchableOpacity>
@@ -193,29 +217,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
   },
   heading: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: 'bold',
     color: '#ffffff',
-    marginBottom: 15,
+    marginBottom: verticalScale(15),
     textTransform: 'uppercase',
-    letterSpacing: 2,
-    fontFamily:
-      Platform.OS === 'android' ? 'sans-serif-light' : 'Times New Roman',
+    letterSpacing: scale(2),
   },
   inputContainer: {
     width: '95%',
     backgroundColor: '#1E1E1E',
-    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
     borderRadius: 8,
     marginBottom: 10,
   },
-  input: {
+  searchContainer: {
+    width: '95%',
+    backgroundColor: '#1E1E1E',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
     backgroundColor: '#2A2A2A',
     color: '#ffffff',
-    height: 45,
-    paddingHorizontal: 12,
-    borderRadius: 5,
-    fontSize: 16,
+    height: verticalScale(45),
+    paddingHorizontal: scale(12),
+    borderRadius: scale(5),
+    fontSize: moderateScale(16),
+  },
+
+  input: {
+    flex: 1,
+    color: '#ffffff',
+    height: verticalScale(45),
+    fontSize: moderateScale(16),
+    paddingHorizontal: scale(10),
+  },
+  iconWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    right: 20,
+    color: '#00E6CC',
+  },
+  plusIcon: {
+    marginLeft: 10,
+    color: '#00E6CC',
   },
   flatlist: {
     width: '95%',
@@ -246,27 +301,21 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#6C63FF',
-    padding: 20,
-    borderRadius: 50,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    bottom: verticalScale(20),
+    right: scale(20),
+    padding: moderateScale(20),
+    borderRadius: scale(50),
   },
   addButtonText: {
-    fontSize: 24,
-    color: '#ffffff',
+    fontSize: moderateScale(24),
   },
+
   swipeDeleteButton: {
     backgroundColor: '#ff4757',
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
-    height: '90%',
+    height: '85%',
     marginVertical: 5,
     borderTopRightRadius: 12,
     borderBottomRightRadius: 12,
