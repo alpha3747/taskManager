@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   useWindowDimensions,
+  SectionList,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -16,58 +17,60 @@ import {Swipeable} from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import {moderateScale, verticalScale, scale} from '../utils/scale';
 
+// Constants
 const PRIORITIES = ['high', 'medium', 'low'];
+const PRIORITY_COLORS = {
+  high: '#ff6b6b',
+  medium: '#ffa502',
+  low: '#2ed573',
+};
 const PRIORITY_ORDER = {high: 0, medium: 1, low: 2};
 
 const HomeScreen = () => {
-  const {width, height} = useWindowDimensions();
+  // Refs
   const inputRef = useRef(null);
+  const descriptionRef = useRef(null);
 
+  // State
   const [task, setTask] = useState('');
+  const [description, setDescription] = useState('');
   const [tasks, setTasks] = useState([]);
-  const [priority, setPriority] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'completed'
 
-  /** Load tasks from storage on mount */
+  // Effects
   useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const saved = await AsyncStorage.getItem('tasks');
-        if (saved) setTasks(JSON.parse(saved));
-      } catch (error) {
-        console.error('Failed loading tasks:', error);
-      }
-    };
-    loadTasks();
+    loadSavedTasks();
   }, []);
 
-  /** Save task to storage */
-  const saveTasks = async updatedTasks => {
+  // Data functions
+  const loadSavedTasks = async () => {
     try {
-      await AsyncStorage.setItem('tasks', JSON.stringify(updatedTasks));
+      const savedTasks = await AsyncStorage.getItem('tasks');
+      if (savedTasks) setTasks(JSON.parse(savedTasks));
+    } catch (error) {
+      console.error('Failed loading tasks:', error);
+    }
+  };
+
+  const saveTasks = async tasksToSave => {
+    try {
+      await AsyncStorage.setItem('tasks', JSON.stringify(tasksToSave));
     } catch (error) {
       console.error('Saving failed:', error);
     }
   };
 
-  /** Add task button pressed */
-  const handleAddButtonPress = () => {
-    inputRef.current.blur();
-    setTimeout(() => inputRef.current.focus(), 100);
-    if (task.trim()) {
-      setModalVisible(true);
-    }
-  };
-
-  /** On selecting priority from modal */
-  const handlePrioritySelect = async selected => {
-    const selectedPriority = selected.toLowerCase();
-
+  // Task operations
+  const addTask = async (taskText, taskDescription, priority) => {
     const newTask = {
       id: Date.now().toString(),
-      text: task.trim(),
-      priority: selectedPriority,
+      text: taskText.trim(),
+      description: taskDescription.trim(),
+      priority: priority,
+      completed: false,
+      completedAt: null,
     };
 
     const updatedTasks = [...tasks, newTask].sort(
@@ -75,36 +78,88 @@ const HomeScreen = () => {
     );
 
     setTasks(updatedTasks);
-    setTask('');
-    setPriority(selectedPriority);
-    setModalVisible(false);
     await saveTasks(updatedTasks);
-
-    Toast.show({
-      type: 'success',
-      text1: `Task added with "${selectedPriority}" priority`,
-      visibilityTime: 1500,
-    });
+    showToast('success', `Task added with "${priority}" priority`);
   };
 
-  /** Delete a task by index */
-  const deleteTask = async index => {
-    const deleted = tasks[index]?.text;
-    const updatedTasks = tasks.filter((_, i) => i !== index);
+  const deleteTask = async taskId => {
+    const taskToDelete = tasks.find(t => t.id === taskId);
+    const updatedTasks = tasks.filter(t => t.id !== taskId);
+
     setTasks(updatedTasks);
     await saveTasks(updatedTasks);
+    showToast('info', `Deleted: "${taskToDelete.text}"`);
+  };
+  const toggleTaskCompletion = async taskId => {
+    const updatedTasks = tasks.map(task => {
+      if (task.id === taskId) {
+        const isNowCompleted = !task.completed;
 
+        Toast.show({
+          type: 'success',
+          text1: isNowCompleted ? 'Task completed!' : 'Task marked incomplete',
+          visibilityTime: 1500,
+        });
+
+        return {
+          ...task,
+          completed: isNowCompleted,
+          completedAt: isNowCompleted ? new Date().toISOString() : null,
+        };
+      }
+      return task;
+    });
+
+    setTasks(updatedTasks);
+    await saveTasks(updatedTasks);
+  };
+
+  // UI handlers
+  const handleAddButtonPress = () => {
+    if (!task.trim()) return;
+
+    inputRef.current.blur();
+    descriptionRef.current.blur();
+    setTimeout(() => inputRef.current.focus(), 100);
+    setModalVisible(true);
+  };
+
+  const handlePrioritySelect = selected => {
+    const selectedPriority = selected.toLowerCase();
+    addTask(task, description, selectedPriority);
+    setTask('');
+    setDescription('');
+    setModalVisible(false);
+  };
+
+  const showToast = (type, message) => {
     Toast.show({
-      type: 'info',
-      text1: `Deleted: "${deleted}"`,
+      type,
+      text1: message,
       visibilityTime: 1500,
     });
   };
 
-  /** Render swipe delete button */
-  const renderRightActions = index => (
+  // Filter and organize tasks
+  const activeTasks = tasks.filter(
+    t =>
+      !t.completed && t.text.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const completedTasks = tasks.filter(
+    t =>
+      t.completed && t.text.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const sectionData = [
+    {title: 'Active Tasks', data: activeTasks},
+    {title: 'Completed Tasks', data: completedTasks},
+  ];
+
+  // Render helpers
+  const renderRightActions = taskId => (
     <TouchableOpacity
-      onPress={() => deleteTask(index)}
+      onPress={() => deleteTask(taskId)}
       activeOpacity={0.7}
       style={styles.swipeDeleteButton}>
       <Icon name="trash-can" size={26} color="#fff" />
@@ -112,19 +167,68 @@ const HomeScreen = () => {
     </TouchableOpacity>
   );
 
-  /** Filter tasks by search */
-  const filteredTasks = tasks.filter(t =>
-    t.text.toLowerCase().includes(searchQuery.toLowerCase()),
+  const renderTaskItem = ({item}) => (
+    <Swipeable renderRightActions={() => renderRightActions(item.id)}>
+      <View
+        style={[
+          styles.taskItem,
+          {
+            borderLeftColor: item.completed
+              ? '#555'
+              : PRIORITY_COLORS[item.priority],
+          },
+        ]}>
+        <TouchableOpacity
+          onPress={() => toggleTaskCompletion(item.id)}
+          style={styles.radioButton}>
+          <Icon
+            name={
+              item.completed
+                ? 'checkbox-marked-circle'
+                : 'checkbox-blank-circle-outline'
+            }
+            size={24}
+            color={item.completed ? '#00b894' : '#aaa'}
+          />
+        </TouchableOpacity>
+
+        <View style={styles.taskContent}>
+          <Text
+            style={[
+              styles.taskText,
+              item.completed && styles.completedTaskText,
+            ]}>
+            {item.text}
+          </Text>
+          {item.description ? (
+            <Text
+              style={[
+                styles.taskDescription,
+                item.completed && styles.completedTaskDescription,
+              ]}>
+              {item.description}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </Swipeable>
+  );
+
+  const renderSectionHeader = ({section: {title}}) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderText}>{title}</Text>
+    </View>
   );
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <Text style={styles.heading}>WORK LABS</Text>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={styles.sharedInput}
           placeholder="Search tasks..."
           placeholderTextColor="#aaa"
           value={searchQuery}
@@ -133,30 +237,41 @@ const HomeScreen = () => {
         <Icon name="magnify" size={22} color="#ccc" style={styles.searchIcon} />
       </View>
 
-      {/* Input Area */}
+      {/* Task Input */}
       <View style={styles.inputContainer}>
         <TextInput
           ref={inputRef}
-          style={styles.input}
+          style={styles.sharedInput}
           placeholder="Add a new task..."
           placeholderTextColor="#aaa"
           value={task}
           onChangeText={setTask}
           onSubmitEditing={handleAddButtonPress}
         />
-        <View style={styles.iconWrapper}>
-          <TouchableOpacity onPress={handleAddButtonPress}>
-            <Icon
-              name={task.trim() ? 'check' : 'plus'}
-              size={22}
-              color="#00b894"
-              style={styles.plusIcon}
-            />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={handleAddButtonPress}>
+          <Icon
+            name={task.trim() ? 'check' : 'plus'}
+            size={22}
+            color="#00b894"
+            style={styles.plusIcon}
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Priority Modal */}
+      {/* Description Input */}
+      <View style={styles.descriptionContainer}>
+        <TextInput
+          ref={descriptionRef}
+          style={styles.descriptionInput}
+          placeholder="Add description (optional)..."
+          placeholderTextColor="#aaa"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+        />
+      </View>
+
+      {/* Priority Picker Modal */}
       <PickerModal
         title="Select Task Priority"
         isVisible={isModalVisible}
@@ -166,42 +281,65 @@ const HomeScreen = () => {
         onBackdropPress={() => setModalVisible(false)}
       />
 
-      {/* Task List */}
-      <FlatList
+      {/* Task List - Updated to filter based on activeTab */}
+      <SectionList
         style={styles.flatlist}
-        data={filteredTasks}
+        sections={
+          activeTab === 'active'
+            ? [{title: 'Active Tasks', data: activeTasks}]
+            : [{title: 'Completed Tasks', data: completedTasks}]
+        }
         keyExtractor={item => item.id}
-        renderItem={({item, index}) => (
-          <Swipeable renderRightActions={() => renderRightActions(index)}>
-            <View
-              style={[
-                styles.taskItem,
-                {
-                  borderLeftColor:
-                    item.priority === 'high'
-                      ? '#ff6b6b'
-                      : item.priority === 'medium'
-                      ? '#ffa502'
-                      : '#2ed573',
-                },
-              ]}>
-              <Text style={styles.taskText}>{item.text}</Text>
-            </View>
-          </Swipeable>
-        )}
+        renderItem={renderTaskItem}
+        renderSectionHeader={renderSectionHeader}
+        stickySectionHeadersEnabled={false}
       />
+
+      {/* Tabs */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'active' && styles.activeTab]}
+          onPress={() => setActiveTab('active')}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'active' && styles.activeTabText,
+            ]}>
+            Active ({activeTasks.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'completed' && styles.activeTab,
+          ]}
+          onPress={() => setActiveTab('completed')}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'completed' && styles.activeTabText,
+            ]}>
+            Completed ({completedTasks.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Floating Add Button */}
       <TouchableOpacity
         onPress={handleAddButtonPress}
+        activeOpacity={0.8}
         style={[
           styles.addButton,
-          {backgroundColor: task.trim() ? '#00b894' : '#6C63FF'},
+          {
+            backgroundColor: task.trim() ? '#00b894' : '#6C63FF',
+            shadowColor: '#000',
+            shadowOffset: {width: 0, height: 2},
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          },
         ]}>
-        <Icon
-          name={task.trim() ? 'check' : 'plus'}
-          style={styles.addButtonText}
-        />
+        <Icon name={task.trim() ? 'check' : 'plus'} size={24} color="#fff" />
       </TouchableOpacity>
 
       <Toast />
@@ -209,6 +347,7 @@ const HomeScreen = () => {
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -226,23 +365,39 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     width: '95%',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#2A2A2A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     borderRadius: 8,
     marginBottom: 10,
+  },
+  descriptionContainer: {
+    width: '95%',
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  descriptionInput: {
+    backgroundColor: '#2A2A2A',
+    color: '#ffffff',
+    minHeight: verticalScale(60),
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(10),
+    borderRadius: scale(5),
+    fontSize: moderateScale(14),
+    textAlignVertical: 'top',
   },
   searchContainer: {
     width: '95%',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#2A2A2A',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     borderRadius: 8,
     marginBottom: 10,
   },
-  searchInput: {
+  sharedInput: {
     flex: 1,
     backgroundColor: '#2A2A2A',
     color: '#ffffff',
@@ -250,18 +405,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(12),
     borderRadius: scale(5),
     fontSize: moderateScale(16),
-  },
-
-  input: {
-    flex: 1,
-    color: '#ffffff',
-    height: verticalScale(45),
-    fontSize: moderateScale(16),
-    paddingHorizontal: scale(10),
-  },
-  iconWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   searchIcon: {
     position: 'absolute',
@@ -275,29 +418,48 @@ const styles = StyleSheet.create({
   flatlist: {
     width: '95%',
     marginTop: 10,
+    marginBottom: 10,
   },
   taskItem: {
     backgroundColor: '#1E1E1E',
-    minHeight: 60,
+    minHeight: 70,
     borderRadius: 7,
     borderLeftWidth: 5,
     width: '100%',
     marginVertical: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 15,
     paddingVertical: 10,
+  },
+  radioButton: {
+    marginRight: 10,
+  },
+  taskContent: {
+    flex: 1,
   },
   taskText: {
     fontSize: 16,
     color: '#ffffff',
     flexShrink: 1,
-    flex: 1,
     lineHeight: 22,
-    marginRight: 10,
     fontFamily:
       Platform.OS === 'android' ? 'sans-serif-light' : 'Times New Roman',
+  },
+  completedTaskText: {
+    textDecorationLine: 'line-through',
+    color: '#888',
+  },
+  taskDescription: {
+    fontSize: 14,
+    color: '#aaa',
+    marginTop: 4,
+    fontFamily:
+      Platform.OS === 'android' ? 'sans-serif-light' : 'Times New Roman',
+  },
+  completedTaskDescription: {
+    color: '#666',
+    textDecorationLine: 'line-through',
   },
   addButton: {
     position: 'absolute',
@@ -309,7 +471,6 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: moderateScale(24),
   },
-
   swipeDeleteButton: {
     backgroundColor: '#ff4757',
     justifyContent: 'center',
@@ -328,7 +489,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     flexDirection: 'column',
   },
-
   swipeDeleteText: {
     color: '#fff',
     fontSize: 13,
@@ -338,6 +498,49 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontFamily:
       Platform.OS === 'android' ? 'sans-serif-medium' : 'Helvetica Neue',
+  },
+  sectionHeader: {
+    backgroundColor: '#121212',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+  },
+  sectionHeaderText: {
+    color: '#00b894',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    width: '95%',
+    marginBottom: 10,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: '#00b894',
+  },
+  tabText: {
+    color: '#aaa',
+    fontWeight: 'bold',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: verticalScale(77),
+    right: scale(20),
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
