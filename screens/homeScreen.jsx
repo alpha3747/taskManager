@@ -27,24 +27,21 @@ const PRIORITY_COLORS = {
 const PRIORITY_ORDER = {high: 0, medium: 1, low: 2};
 
 const HomeScreen = () => {
-  // Refs
   const inputRef = useRef(null);
   const descriptionRef = useRef(null);
 
-  // State
   const [task, setTask] = useState('');
   const [description, setDescription] = useState('');
   const [tasks, setTasks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setModalVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'completed'
+  const [activeTab, setActiveTab] = useState('active');
 
-  // Effects
+  // load tasks
   useEffect(() => {
     loadSavedTasks();
   }, []);
 
-  // Data functions
   const loadSavedTasks = async () => {
     try {
       const savedTasks = await AsyncStorage.getItem('tasks');
@@ -62,7 +59,6 @@ const HomeScreen = () => {
     }
   };
 
-  // Task operations
   const addTask = async (taskText, taskDescription, priority) => {
     const newTask = {
       id: Date.now().toString(),
@@ -90,6 +86,16 @@ const HomeScreen = () => {
     await saveTasks(updatedTasks);
     showToast('info', `Deleted: "${taskToDelete.text}"`);
   };
+
+  // editing tasks
+  const editTask = taskId => {
+    const taskToEdit = tasks.find(t => t.id === taskId);
+    setTask(taskToEdit.text);
+    setDescription(taskToEdit.description);
+    deleteTask(taskId);
+    inputRef.current.focus();
+  };
+
   const toggleTaskCompletion = async taskId => {
     const updatedTasks = tasks.map(task => {
       if (task.id === taskId) {
@@ -114,13 +120,16 @@ const HomeScreen = () => {
     await saveTasks(updatedTasks);
   };
 
-  // UI handlers
+  // handleAddButtonPress to focus on input
   const handleAddButtonPress = () => {
-    if (!task.trim()) return;
+    if (!task.trim()) {
+      inputRef.current.focus();
+      return;
+    }
 
     inputRef.current.blur();
     descriptionRef.current.blur();
-    setTimeout(() => inputRef.current.focus(), 100);
+    setTimeout(() => inputRef.current.focus(), 300);
     setModalVisible(true);
   };
 
@@ -132,15 +141,6 @@ const HomeScreen = () => {
     setModalVisible(false);
   };
 
-  const showToast = (type, message) => {
-    Toast.show({
-      type,
-      text1: message,
-      visibilityTime: 1500,
-    });
-  };
-
-  // Filter and organize tasks
   const activeTasks = tasks.filter(
     t =>
       !t.completed && t.text.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -158,13 +158,23 @@ const HomeScreen = () => {
 
   // Render helpers
   const renderRightActions = taskId => (
-    <TouchableOpacity
-      onPress={() => deleteTask(taskId)}
-      activeOpacity={0.7}
-      style={styles.swipeDeleteButton}>
-      <Icon name="trash-can" size={26} color="#fff" />
-      <Text style={styles.swipeDeleteText}>Delete</Text>
-    </TouchableOpacity>
+    <View style={styles.swipeActionsContainer}>
+      {/* Edit Button */}
+      <TouchableOpacity
+        onPress={() => editTask(taskId)}
+        activeOpacity={0.7}
+        style={[styles.swipeActionButton, styles.swipeEditButton]}>
+        <Icon name="pencil" size={18} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Delete Button */}
+      <TouchableOpacity
+        onPress={() => deleteTask(taskId)}
+        activeOpacity={0.7}
+        style={[styles.swipeActionButton, styles.swipeDeleteButton]}>
+        <Icon name="trash-can" size={18} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 
   const renderTaskItem = ({item}) => (
@@ -471,33 +481,31 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontSize: moderateScale(24),
   },
-  swipeDeleteButton: {
-    backgroundColor: '#ff4757',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 80,
+
+  swipeActionsContainer: {
+    flexDirection: 'row',
     height: '85%',
     marginVertical: 5,
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
+  },
+  swipeActionButton: {
+    width: 60, // Reduced from 70
+    justifyContent: 'center',
+    alignItems: 'center',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.35,
     shadowRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-    flexDirection: 'column',
   },
-  swipeDeleteText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 6,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    fontFamily:
-      Platform.OS === 'android' ? 'sans-serif-medium' : 'Helvetica Neue',
+  swipeEditButton: {
+    backgroundColor: '#3498db',
+    borderTopLeftRadius: 8, // Reduced from 12
+    borderBottomLeftRadius: 8, // Reduced from 12
+  },
+  swipeDeleteButton: {
+    backgroundColor: '#ff4757',
+    borderTopRightRadius: 8, // Reduced from 12
+    borderBottomRightRadius: 8, // Reduced from 12
   },
   sectionHeader: {
     backgroundColor: '#121212',
