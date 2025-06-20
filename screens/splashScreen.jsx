@@ -11,7 +11,7 @@ const SplashScreen = ({navigation}) => {
     Animated.parallel([
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 1000,
+        duration: 1200,
         useNativeDriver: true,
       }),
       Animated.spring(logoScale, {
@@ -24,7 +24,7 @@ const SplashScreen = ({navigation}) => {
     // progress bar
     Animated.timing(progress, {
       toValue: 1,
-      duration: 2000,
+      duration: 1500,
       useNativeDriver: false,
     }).start(() => navigation.replace('Home'));
   }, []);

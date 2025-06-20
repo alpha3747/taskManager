@@ -3,11 +3,9 @@ import {
   StyleSheet,
   Text,
   View,
-  FlatList,
   TextInput,
   TouchableOpacity,
   Platform,
-  useWindowDimensions,
   SectionList,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,7 +15,6 @@ import {Swipeable} from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import {moderateScale, verticalScale, scale} from '../utils/scale';
 
-// Constants
 const PRIORITIES = ['high', 'medium', 'low'];
 const PRIORITY_COLORS = {
   high: '#ff6b6b',
@@ -37,96 +34,84 @@ const HomeScreen = () => {
   const [isModalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
 
-  // load tasks
   useEffect(() => {
     loadSavedTasks();
   }, []);
 
   const loadSavedTasks = async () => {
     try {
-      const savedTasks = await AsyncStorage.getItem('tasks');
-      if (savedTasks) setTasks(JSON.parse(savedTasks));
+      const saved = await AsyncStorage.getItem('tasks');
+      if (saved) setTasks(JSON.parse(saved));
     } catch (error) {
-      console.error('Failed loading tasks:', error);
+      console.error('Failed to load:', error);
     }
   };
 
-  const saveTasks = async tasksToSave => {
+  const saveTasks = async updated => {
     try {
-      await AsyncStorage.setItem('tasks', JSON.stringify(tasksToSave));
+      await AsyncStorage.setItem('tasks', JSON.stringify(updated));
     } catch (error) {
-      console.error('Saving failed:', error);
+      console.error('Save failed:', error);
     }
   };
 
-  const addTask = async (taskText, taskDescription, priority) => {
+  const addTask = async (text, desc, priority) => {
     const newTask = {
       id: Date.now().toString(),
-      text: taskText.trim(),
-      description: taskDescription.trim(),
-      priority: priority,
+      text: text.trim(),
+      description: desc.trim(),
+      priority,
       completed: false,
       completedAt: null,
     };
-
-    const updatedTasks = [...tasks, newTask].sort(
+    const updated = [...tasks, newTask].sort(
       (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
     );
-
-    setTasks(updatedTasks);
-    await saveTasks(updatedTasks);
-    showToast('success', `Task added with "${priority}" priority`);
+    setTasks(updated);
+    await saveTasks(updated);
+    Toast.show({type: 'success', text1: `Added: ${priority}`});
   };
 
-  const deleteTask = async taskId => {
-    const taskToDelete = tasks.find(t => t.id === taskId);
-    const updatedTasks = tasks.filter(t => t.id !== taskId);
-
-    setTasks(updatedTasks);
-    await saveTasks(updatedTasks);
-    showToast('info', `Deleted: "${taskToDelete.text}"`);
+  const deleteTask = async id => {
+    const taskToDelete = tasks.find(t => t.id === id);
+    const updated = tasks.filter(t => t.id !== id);
+    setTasks(updated);
+    await saveTasks(updated);
+    Toast.show({type: 'info', text1: `Deleted: ${taskToDelete?.text}`});
   };
 
-  // editing tasks
-  const editTask = taskId => {
-    const taskToEdit = tasks.find(t => t.id === taskId);
-    setTask(taskToEdit.text);
-    setDescription(taskToEdit.description);
-    deleteTask(taskId);
-    inputRef.current.focus();
-  };
-
-  const toggleTaskCompletion = async taskId => {
-    const updatedTasks = tasks.map(task => {
-      if (task.id === taskId) {
-        const isNowCompleted = !task.completed;
-
-        Toast.show({
-          type: 'success',
-          text1: isNowCompleted ? 'Task completed!' : 'Task marked incomplete',
-          visibilityTime: 1500,
-        });
-
-        return {
-          ...task,
-          completed: isNowCompleted,
-          completedAt: isNowCompleted ? new Date().toISOString() : null,
-        };
-      }
-      return task;
-    });
-
-    setTasks(updatedTasks);
-    await saveTasks(updatedTasks);
-  };
-
-  // handleAddButtonPress to focus on input
-  const handleAddButtonPress = () => {
-    if (!task.trim()) {
+  const editTask = id => {
+    const toEdit = tasks.find(t => t.id === id);
+    if (toEdit) {
+      setTask(toEdit.text);
+      setDescription(toEdit.description);
+      deleteTask(id);
       inputRef.current.focus();
-      return;
     }
+  };
 
+  const toggleTaskCompletion = async id => {
+    const updated = tasks.map(t =>
+      t.id === id
+        ? {
+            ...t,
+            completed: !t.completed,
+            completedAt: !t.completed ? new Date().toISOString() : null,
+          }
+        : t,
+    );
+    setTasks(updated);
+    await saveTasks(updated);
+    Toast.show({
+      type: 'success',
+      text1: updated.find(t => t.id === id).completed
+        ? 'Task Completed'
+        : 'Marked Incomplete',
+    });
+  };
+
+  const handleAddButtonPress = () => {
+    if (!task.trim()) return inputRef.current.focus();
     inputRef.current.blur();
     descriptionRef.current.blur();
     setTimeout(() => inputRef.current.focus(), 300);
@@ -134,42 +119,31 @@ const HomeScreen = () => {
   };
 
   const handlePrioritySelect = selected => {
-    const selectedPriority = selected.toLowerCase();
-    addTask(task, description, selectedPriority);
+    addTask(task, description, selected.toLowerCase());
     setTask('');
     setDescription('');
     setModalVisible(false);
   };
 
-  const activeTasks = tasks.filter(
+  const filteredActive = tasks.filter(
     t =>
       !t.completed && t.text.toLowerCase().includes(searchQuery.toLowerCase()),
   );
-
-  const completedTasks = tasks.filter(
+  const filteredCompleted = tasks.filter(
     t =>
       t.completed && t.text.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const sectionData = [
-    {title: 'Active Tasks', data: activeTasks},
-    {title: 'Completed Tasks', data: completedTasks},
-  ];
-
-  // Render helpers
-  const renderRightActions = taskId => (
+  const renderRightActions = id => (
     <View style={styles.swipeActionsContainer}>
-      {/* Edit Button */}
       <TouchableOpacity
-        onPress={() => editTask(taskId)}
+        onPress={() => editTask(id)}
         activeOpacity={0.7}
         style={[styles.swipeActionButton, styles.swipeEditButton]}>
         <Icon name="pencil" size={18} color="#fff" />
       </TouchableOpacity>
-
-      {/* Delete Button */}
       <TouchableOpacity
-        onPress={() => deleteTask(taskId)}
+        onPress={() => deleteTask(id)}
         activeOpacity={0.7}
         style={[styles.swipeActionButton, styles.swipeDeleteButton]}>
         <Icon name="trash-can" size={18} color="#fff" />
@@ -201,7 +175,6 @@ const HomeScreen = () => {
             color={item.completed ? '#00b894' : '#aaa'}
           />
         </TouchableOpacity>
-
         <View style={styles.taskContent}>
           <Text
             style={[
@@ -232,10 +205,8 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <Text style={styles.heading}>WORK LABS</Text>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.sharedInput}
@@ -247,7 +218,6 @@ const HomeScreen = () => {
         <Icon name="magnify" size={22} color="#ccc" style={styles.searchIcon} />
       </View>
 
-      {/* Task Input */}
       <View style={styles.inputContainer}>
         <TextInput
           ref={inputRef}
@@ -268,7 +238,6 @@ const HomeScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Description Input */}
       <View style={styles.descriptionContainer}>
         <TextInput
           ref={descriptionRef}
@@ -281,7 +250,6 @@ const HomeScreen = () => {
         />
       </View>
 
-      {/* Priority Picker Modal */}
       <PickerModal
         title="Select Task Priority"
         isVisible={isModalVisible}
@@ -291,13 +259,12 @@ const HomeScreen = () => {
         onBackdropPress={() => setModalVisible(false)}
       />
 
-      {/* Task List - Updated to filter based on activeTab */}
       <SectionList
         style={styles.flatlist}
         sections={
           activeTab === 'active'
-            ? [{title: 'Active Tasks', data: activeTasks}]
-            : [{title: 'Completed Tasks', data: completedTasks}]
+            ? [{title: 'Active Tasks', data: filteredActive}]
+            : [{title: 'Completed Tasks', data: filteredCompleted}]
         }
         keyExtractor={item => item.id}
         renderItem={renderTaskItem}
@@ -305,7 +272,6 @@ const HomeScreen = () => {
         stickySectionHeadersEnabled={false}
       />
 
-      {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'active' && styles.activeTab]}
@@ -315,7 +281,7 @@ const HomeScreen = () => {
               styles.tabText,
               activeTab === 'active' && styles.activeTabText,
             ]}>
-            Active ({activeTasks.length})
+            Active ({filteredActive.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -329,12 +295,11 @@ const HomeScreen = () => {
               styles.tabText,
               activeTab === 'completed' && styles.activeTabText,
             ]}>
-            Completed ({completedTasks.length})
+            Completed ({filteredCompleted.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Floating Add Button */}
       <TouchableOpacity
         onPress={handleAddButtonPress}
         activeOpacity={0.8}
@@ -357,7 +322,8 @@ const HomeScreen = () => {
   );
 };
 
-// Styles
+export default HomeScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -368,7 +334,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: moderateScale(28),
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: '#00E6CC',
     marginBottom: verticalScale(15),
     textTransform: 'uppercase',
     letterSpacing: scale(2),
@@ -418,11 +384,12 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     position: 'absolute',
-    right: 20,
+    right: 10,
     color: '#00E6CC',
   },
   plusIcon: {
-    marginLeft: 10,
+    // position:"absolute",
+    // marginLeft: 10,
     color: '#00E6CC',
   },
   flatlist: {
@@ -551,5 +518,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
-export default HomeScreen;
