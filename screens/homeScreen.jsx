@@ -59,7 +59,39 @@ const HomeScreen = () => {
     }
   };
 
-  const addTask = async (text, desc, priority) => {
+  // const addTask = async (text, desc, priority) => {
+  //   try {
+  //     const newTask = {
+  //       id: Date.now().toString(),
+  //       text: text.trim(),
+  //       description: desc.trim(),
+  //       priority,
+  //       completed: false,
+  //       completedAt: null,
+  //       dueDate: selectedDate.toISOString(),
+  //     };
+  //     const updated = [...tasks, newTask].sort(
+  //       (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
+  //     );
+  //     setTasks(updated);
+  //     await saveTasks(updated);
+  //     Toast.show({
+  //       type: 'success',
+  //       text1: `Task added with ${priority} priority`,
+  //     });
+  //     setSelectedDate(new Date());
+  //     setTask('');
+  //     setDescription('');
+  //   } catch (error) {
+  //     console.error('Add task error:', error);
+  //     Toast.show({
+  //       type: 'error',
+  //       text1: 'Failed to add task',
+  //     });
+  //   }
+  // };
+
+  const addTask = async (text, desc, priority, dueDate) => {
     try {
       const newTask = {
         id: Date.now().toString(),
@@ -68,7 +100,7 @@ const HomeScreen = () => {
         priority,
         completed: false,
         completedAt: null,
-        dueDate: selectedDate.toISOString(),
+        dueDate: dueDate.toISOString(),
       };
       const updated = [...tasks, newTask].sort(
         (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
@@ -83,7 +115,7 @@ const HomeScreen = () => {
       setTask('');
       setDescription('');
     } catch (error) {
-      console.error('Add task error:', error);
+      console.log('Add task error:', error);
       Toast.show({
         type: 'error',
         text1: 'Failed to add task',
@@ -91,6 +123,7 @@ const HomeScreen = () => {
     }
   };
 
+  
   const deleteTask = async id => {
     try {
       const taskToDelete = tasks.find(t => t.id === id);
@@ -159,11 +192,24 @@ const HomeScreen = () => {
     }
   };
 
+  // const handleDateConfirm = date => {
+  //   try {
+  //     setDatePickerVisibility(false);
+  //     setSelectedDate(date);
+  //     addTask(task, description, selectedPriority);
+  //   } catch (error) {
+  //     console.error('Date confirm error:', error);
+  //     Toast.show({
+  //       type: 'error',
+  //       text1: 'Failed to select date',
+  //     });
+  //   }
+  // };
+
   const handleDateConfirm = date => {
     try {
       setDatePickerVisibility(false);
-      setSelectedDate(date);
-      addTask(task, description, selectedPriority);
+      addTask(task, description, selectedPriority, date);
     } catch (error) {
       console.error('Date confirm error:', error);
       Toast.show({
@@ -172,7 +218,7 @@ const HomeScreen = () => {
       });
     }
   };
-
+  
   const handleDateCancel = () => {
     setDatePickerVisibility(false);
   };
@@ -606,6 +652,8 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
+
+
 
 // import React, {useState, useEffect, useRef} from 'react';
 // import {
