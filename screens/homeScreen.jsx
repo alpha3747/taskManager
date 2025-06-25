@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   SectionList,
+  PermissionsAndroid,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -15,6 +16,7 @@ import {Swipeable} from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import {moderateScale, verticalScale, scale} from '../utils/scale';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+
 
 const PRIORITIES = ['high', 'medium', 'low'];
 const PRIORITY_COLORS = {
@@ -38,7 +40,31 @@ const HomeScreen = () => {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState(null);
 
+  
+  // requestNotificationPermission
+ const requestNotificationPermission = async () => {
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    try {
+      const response = await PermissionsAndroid.check('android.permission.POST_NOTIFICATIONS');
+      if (!response) {
+        console.log('Requesting notification permission');
+        await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS', {
+          title: 'Notification Permission',
+          message: 'We need access to your notifications to send updates',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting notification permission:', error);
+    }
+  }
+};
+
+
   useEffect(() => {
+    requestNotificationPermission();
     loadSavedTasks();
   }, []);
 
@@ -59,37 +85,6 @@ const HomeScreen = () => {
     }
   };
 
-  // const addTask = async (text, desc, priority) => {
-  //   try {
-  //     const newTask = {
-  //       id: Date.now().toString(),
-  //       text: text.trim(),
-  //       description: desc.trim(),
-  //       priority,
-  //       completed: false,
-  //       completedAt: null,
-  //       dueDate: selectedDate.toISOString(),
-  //     };
-  //     const updated = [...tasks, newTask].sort(
-  //       (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority],
-  //     );
-  //     setTasks(updated);
-  //     await saveTasks(updated);
-  //     Toast.show({
-  //       type: 'success',
-  //       text1: `Task added with ${priority} priority`,
-  //     });
-  //     setSelectedDate(new Date());
-  //     setTask('');
-  //     setDescription('');
-  //   } catch (error) {
-  //     console.error('Add task error:', error);
-  //     Toast.show({
-  //       type: 'error',
-  //       text1: 'Failed to add task',
-  //     });
-  //   }
-  // };
 
   const addTask = async (text, desc, priority, dueDate) => {
     try {
@@ -191,20 +186,6 @@ const HomeScreen = () => {
       console.error('Priority select error:', error);
     }
   };
-
-  // const handleDateConfirm = date => {
-  //   try {
-  //     setDatePickerVisibility(false);
-  //     setSelectedDate(date);
-  //     addTask(task, description, selectedPriority);
-  //   } catch (error) {
-  //     console.error('Date confirm error:', error);
-  //     Toast.show({
-  //       type: 'error',
-  //       text1: 'Failed to select date',
-  //     });
-  //   }
-  // };
 
   const handleDateConfirm = date => {
     try {
