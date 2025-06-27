@@ -16,7 +16,7 @@ import {Swipeable} from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import {moderateScale, verticalScale, scale} from '../utils/scale';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-
+import notifee from '@notifee/react-native';
 
 const PRIORITIES = ['high', 'medium', 'low'];
 const PRIORITY_COLORS = {
@@ -40,28 +40,63 @@ const HomeScreen = () => {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [selectedPriority, setSelectedPriority] = useState(null);
 
-  
-  // requestNotificationPermission
- const requestNotificationPermission = async () => {
-  if (Platform.OS === 'android' && Platform.Version >= 33) {
-    try {
-      const response = await PermissionsAndroid.check('android.permission.POST_NOTIFICATIONS');
-      if (!response) {
-        console.log('Requesting notification permission');
-        await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS', {
-          title: 'Notification Permission',
-          message: 'We need access to your notifications to send updates',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        });
-      }
-    } catch (error) {
-      console.error('Error requesting notification permission:', error);
-    }
-  }
-};
+  //   // requestNotificationPermission
+  //  const requestNotificationPermission = async () => {
+  //   if (Platform.OS === 'android' && Platform.Version >= 33) {
+  //     try {
+  //       const response = await PermissionsAndroid.check('android.permission.POST_NOTIFICATIONS');
+  //       if (!response) {
+  //         console.log('Requesting notification permission');
+  //         await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS', {
+  //           title: 'Notification Permission',
+  //           message: 'We need access to your notifications to send updates',
+  //           buttonNeutral: 'Ask Me Later',
+  //           buttonNegative: 'Cancel',
+  //           buttonPositive: 'OK',
+  //         });
+  //       }
+  //     } catch (error) {
+  //       console.error('Error requesting notification permission:', error);
+  //     }
+  //   }
+  // };
 
+  // requestNotificationPermission
+  const requestNotificationPermission = async () => {
+    if (Platform.OS === 'android' && Platform.Version >= 33)
+      try {
+        await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+        );
+      } catch (error) {
+        console.log('requestNotificationPermission', error);
+      }
+  };
+
+  async function onDisplayNotification() {
+    const channelId = await notifee.createChannel({
+      id: 'default',
+      name: 'default channel',
+    });
+    await notifee.displayNotification({
+      title: 'notification from worklabs',
+      name: 'hard coded notifications from worklabs',
+      android: {
+        channelId,
+        smallIcon: 'ic_launcher',
+      },
+    });
+  }
+
+  // useEffect (()=>{
+  //   const interval = setInterval(() => {
+  //     console.log('notification useffect executing...');
+  //     onDisplayNotification();
+  //   }, 5000);
+  
+  //   return () => clearInterval(interval); 
+
+  // },[])
 
   useEffect(() => {
     requestNotificationPermission();
@@ -84,7 +119,6 @@ const HomeScreen = () => {
       console.error('Save failed:', error);
     }
   };
-
 
   const addTask = async (text, desc, priority, dueDate) => {
     try {
@@ -118,7 +152,6 @@ const HomeScreen = () => {
     }
   };
 
-  
   const deleteTask = async id => {
     try {
       const taskToDelete = tasks.find(t => t.id === id);
@@ -199,7 +232,7 @@ const HomeScreen = () => {
       });
     }
   };
-  
+
   const handleDateCancel = () => {
     setDatePickerVisibility(false);
   };
@@ -633,8 +666,6 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
-
-
 
 // import React, {useState, useEffect, useRef} from 'react';
 // import {
