@@ -1,33 +1,12 @@
-import {AppRegistry} from 'react-native';
-import {name as appName} from './app.json';
-import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import HomeScreen from './screens/homeScreen';
-import SplashScreen from './screens/splashScreen';
-import Toast from 'react-native-toast-message';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
+// index.js
+import { AppRegistry } from 'react-native';
+import notifee, { EventType } from '@notifee/react-native';
+import App from './App';
+import { name as appName } from './app.json';
 
-const Stack = createNativeStackNavigator();
+notifee.onBackgroundEvent(async ({ type, detail }) => {
+  console.log('[BackgroundEvent]', type, detail);
+  // Optionally, handle user actions on notifications here
+});
 
-const Root = () => (
-  <GestureHandlerRootView>
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Splash">
-        <Stack.Screen
-          name="Splash"
-          component={SplashScreen}
-          options={{headerShown: false}}
-        />
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{headerShown: false}}
-        />
-      </Stack.Navigator>
-      <Toast />
-    </NavigationContainer>
-  </GestureHandlerRootView>
-);
-
-AppRegistry.registerComponent(appName, () => Root);
+AppRegistry.registerComponent(appName, () => App);
