@@ -1,4 +1,3 @@
-// NotificationService.js
 import notifee, { TimestampTrigger, TriggerType } from '@notifee/react-native';
 
 export const createDefaultChannel = async () => {

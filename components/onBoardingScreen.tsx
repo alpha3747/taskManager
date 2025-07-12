@@ -24,19 +24,25 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
           backgroundColor: '#121212',
           image: <Image source={require('../assets/intro1.png')} style={styles.image} />,
           title: 'Welcome to WorkLabs',
-          subtitle: 'Organize your tasks efficiently with ease!',
+          subtitle: 'Lets get things done!',
+        },
+        {
+          backgroundColor: '#121212',
+          image: <Image source={require('../assets/intro1.png')} style={styles.image} />,
+          title: 'Add Tasks Easily',
+          subtitle: 'Enter a task name and optional description, then set a priority and due date to stay organized.',
         },
         {
           backgroundColor: '#121212',
           image: <Image source={require('../assets/intro2.jpg')} style={styles.image} />,
-          title: 'Stay on Track',
-          subtitle: 'Get reminders before your tasks become overdue!',
+          title: 'Stay Notified',
+          subtitle: 'Receive timely reminders for your tasks to ensure you never miss a deadline.',
         },
         {
           backgroundColor: '#121212',
           image: <Image source={require('../assets/intro3.jpg')} style={styles.image} />,
-          title: 'Get Started Now',
-          subtitle: 'Add your first task and take control of your schedule!',
+          title: 'Manage Your Tasks',
+          subtitle: 'Swipe to edit or delete tasks, and tap to mark them as complete or incomplete.',
         },
       ]}
       titleStyles={styles.title}

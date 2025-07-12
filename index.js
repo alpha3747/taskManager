@@ -6,7 +6,6 @@ import { name as appName } from './app.json';
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   console.log('[BackgroundEvent]', type, detail);
-  // Optionally, handle user actions on notifications here
 });
 
 AppRegistry.registerComponent(appName, () => App);
