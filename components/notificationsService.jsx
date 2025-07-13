@@ -19,7 +19,9 @@ export const scheduleTaskNotification = async (taskId, taskText, dueDate) => {
     {
       id: taskId,
       title: 'Task Reminder',
-      body: `Your task "${taskText}" is due now!`,
+      body: `"${taskText}" is due now!`,
+      // body: `"${taskText}" is due at ${time}!`,
+
       android: {
         channelId,
         smallIcon: 'ic_launcher',
