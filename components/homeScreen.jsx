@@ -1,4 +1,3 @@
-// HomeScreen.js
 import React, {useState, useEffect, useRef} from 'react';
 import {
   StyleSheet,
@@ -110,7 +109,7 @@ const HomeScreen = () => {
     setTasks(updated);
     await saveTasks(updated);
 
-    Toast.show({type: 'info', text1: `Deleted: ${toDelete.text}`});
+    Toast.show({type: 'info', text1: `Task deleted: ${toDelete.text}`});
   };
 
   const editTask = async id => {
@@ -140,8 +139,8 @@ const HomeScreen = () => {
 
     if (updated.find(t => t.id === id).completed) {
       await cancelTaskNotification(id);
-      Toast.show({type: 'success', text1: 'Task Completed'});
-    } else Toast.show({type: 'success', text1: 'Marked Incomplete'});
+      Toast.show({type: 'success', text1: 'Task marked as completed'});
+    } else Toast.show({type: 'success', text1: 'Task marked as incomplete'});
   };
 
   const handleAddButtonPress = () => {
@@ -314,6 +313,27 @@ const HomeScreen = () => {
         multiline
       />
 
+      <View style={styles.tabContainer}>
+        {['active', 'completed'].map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabButton, activeTab === tab && styles.activeTab]}
+            onPress={() => setActiveTab(tab)}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab && styles.activeTabText,
+              ]}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)} (
+              {tab === 'active'
+                ? filteredActive.length
+                : filteredCompleted.length}
+              )
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <PickerModal
         title="Select Task Priority"
         isVisible={isModalVisible}
@@ -350,27 +370,6 @@ const HomeScreen = () => {
         stickySectionHeadersEnabled={false}
       />
 
-      <View style={styles.tabContainer}>
-        {['active', 'completed'].map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabButton, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}>
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === tab && styles.activeTabText,
-              ]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)} (
-              {tab === 'active'
-                ? filteredActive.length
-                : filteredCompleted.length}
-              )
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <TouchableOpacity
         onPress={handleAddButtonPress}
         style={[
@@ -399,7 +398,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     backgroundColor: '#2A2A2A',
-    padding: 15,
+    padding: 8,
     borderRadius: 8,
     marginBottom: 10,
     alignItems: 'center',
@@ -407,23 +406,29 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     backgroundColor: '#2A2A2A',
-    padding: 15,
+    padding: 8,
     borderRadius: 8,
     marginBottom: 10,
     alignItems: 'center',
   },
-  sharedInput: {flex: 1, color: '#fff', height: 45, fontSize: 16},
+  sharedInput: {
+    flex: 1,
+    color: '#fff',
+    height: 40,
+    fontSize: 15,
+    paddingVertical: 6,
+  },
   plusIcon: {},
   searchIcon: {},
   descriptionInput: {
     backgroundColor: '#2A2A2A',
     borderRadius: 8,
     color: '#fff',
-    minHeight: 60,
-    padding: 15,
+    minHeight: 40,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     fontSize: 14,
     marginBottom: 10,
-    textAlignVertical: 'top',
   },
   flatlist: {flex: 1},
   taskItem: {
@@ -485,7 +490,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A2A2A',
     borderRadius: 8,
     overflow: 'hidden',
-    marginVertical: 10,
+    marginBottom: 10,
   },
   tabButton: {flex: 1, paddingVertical: 12, alignItems: 'center'},
   activeTab: {backgroundColor: '#00b894'},
@@ -493,8 +498,8 @@ const styles = StyleSheet.create({
   activeTabText: {color: '#fff'},
   addButton: {
     position: 'absolute',
-    bottom: 90,
-    right: 20,
+    bottom: 30,
+    right: 30,
     width: 60,
     height: 60,
     borderRadius: 30,
